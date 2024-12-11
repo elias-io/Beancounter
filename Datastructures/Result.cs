@@ -57,7 +57,7 @@ public class Result<TSuccess,TError>
         }
     }
     
-    public async Task Match<TOut>(Func<TSuccess, Task> successFunc, Func<TError, Task> errorFunc)
+    public async Task Match(Func<TSuccess, Task> successFunc, Func<TError, Task> errorFunc)
     {
         if (IsSuccess)
         {

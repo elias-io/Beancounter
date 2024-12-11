@@ -1,5 +1,4 @@
 using System.Reflection;
-using System.Runtime;
 
 namespace Beancounter.Helper;
 
