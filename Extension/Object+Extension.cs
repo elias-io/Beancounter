@@ -17,16 +17,21 @@ public static class ObjectExtension
         var isValid = true;
         foreach (var property in properties)
         {
-            var value = property.GetValue(obj);
-            var propertyPath = string.IsNullOrEmpty(path) ? property.Name : $"{path}.{property.Name}";
-            if (!IsNullable(property) && value == null)
-            {
-                validationErrors.Add($"Property '{propertyPath}' is non-nullable but is null.");
-                isValid = false;
+            try {
+                var value = property.GetValue(obj);
+                var propertyPath = string.IsNullOrEmpty(path) ? property.Name : $"{path}.{property.Name}";
+                if (!IsNullable(property) && value == null)
+                {
+                    validationErrors.Add($"Property '{propertyPath}' is non-nullable but is null.");
+                    isValid = false;
+                }
+                if (value != null && !property.PropertyType.IsPrimitive && !(value is string))
+                {
+                    isValid &= ValidateObject(value, validationErrors, propertyPath);
+                }
             }
-            if (value != null && !property.PropertyType.IsPrimitive && !(value is string))
-            {
-                isValid &= ValidateObject(value, validationErrors, propertyPath);
+            catch {
+                // ignored
             }
         }
 
