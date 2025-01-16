@@ -11,10 +11,15 @@ public class Optional<TValue>
     [MemberNotNullWhen(true, nameof(Value))]
     public bool HasValue { get; private set; }
     
-    public Optional(TValue value)
+    public Optional(TValue? value)
     {
-        Value = value;
-        HasValue = true;
+        if (value is null) {
+            HasValue = false;
+        }
+        else {
+            Value = value;
+            HasValue = true;
+        }
     }
     
     public Optional()
@@ -24,7 +29,7 @@ public class Optional<TValue>
     
     public static Optional<TValue> Some(TValue value) => new(value);
     
-    public static implicit operator Optional<TValue>(TValue value) => new(value);
+    public static implicit operator Optional<TValue>(TValue? value) => new(value);
     
     public static Optional<TValue> None => new();
 
@@ -38,7 +43,7 @@ public class Optional<TValue>
         }
         throw new Exception("Cannot unwrap empty optional");
     }
-    
+
     public TValue UnwrapOr(TValue defaultValue)
     {
         return HasValue ? Value! : defaultValue;
