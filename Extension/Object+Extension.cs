@@ -22,7 +22,7 @@ public static class ObjectExtension
             foreach (var item in (System.Collections.IEnumerable)obj) {
                 if (item != null) {
                     var itemPath = $"{path}[{index}]";
-                    if (!ValidateObject(item, validationErrors, itemPath, depth + 1)) {
+                    if (!ValidateObject(item, validationErrors, itemPath)) {
                         return false;
                     }
                 }
