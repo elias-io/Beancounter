@@ -2,7 +2,7 @@ using Newtonsoft.Json;
 
 namespace Beancounter.Extension;
 
-public static class JsonSerializerExtension
+public static class JsonSerializerExtensions
 {
     public static string Serialize(this JsonSerializer jsonSerializer, object obj)
     {
