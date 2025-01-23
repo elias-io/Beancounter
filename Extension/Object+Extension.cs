@@ -13,6 +13,25 @@ public static class ObjectExtension
     private static bool ValidateObject(object? obj, List<string> validationErrors, string path = "")
     {
         if (obj == null) return true;
+
+        var objType = obj.GetType();
+
+        // Handle arrays and collections properly
+        if (objType.IsArray || (obj is System.Collections.IEnumerable && objType != typeof(string))) {
+            var index = 0;
+            foreach (var item in (System.Collections.IEnumerable)obj) {
+                if (item != null) {
+                    var itemPath = $"{path}[{index}]";
+                    if (!ValidateObject(item, validationErrors, itemPath, depth + 1)) {
+                        return false;
+                    }
+                }
+                index++;
+            }
+            return true;
+        }
+
+
         var properties = obj.GetType().GetProperties();
         var isValid = true;
         foreach (var property in properties)
