@@ -16,16 +16,14 @@ public abstract class EnvironmentVariableConfiguration
             if (optEnvAttr is not {} envAttr) continue;
             var envName = envAttr.Name;
             var envVar = VariableLoader.Instance.GetEnvironmentVariable(envName) ?? envAttr.DefaultValue;
-            if (envVar is null)
+            if (envVar is null && !envAttr.HasDefaultValue) {
                 throw new ArgumentException($"Environment variable {envName} is not set!");
-
-            if (TryConvert(envVar, property.PropertyType,  out var result))
-            {
+            } else if (envVar is null) {
+                property.SetValue(this, null);
+            } else if (TryConvert(envVar, property.PropertyType,  out var result)) {
                 var cast = Convert.ChangeType(result, property.PropertyType);
                 property.SetValue(this, cast);
-            }
-            else
-            {
+            } else {
                 throw new NotSupportedException(
                     $"Environment variable {envName} could not be converted to {property.PropertyType}!");
             }
@@ -55,10 +53,18 @@ public abstract class EnvironmentVariableConfiguration
     {
         public string Name { get; }
         public string? DefaultValue { get; }
-        public EnvName(string name, string? defaultValue = null)
+        public bool HasDefaultValue { get; }
+        public EnvName(string name, string? defaultValue)
         {
             Name = name;
             DefaultValue = defaultValue;
+            HasDefaultValue = true;
+        }
+
+        public EnvName(string name) {
+            Name = name;
+            DefaultValue = null;
+            HasDefaultValue = false;
         }
     }
 }
@@ -76,7 +82,7 @@ file class VariableLoader
 
     public static VariableLoader Instance => InstanceBackingField.Value;
 
-    private Dictionary<string, string> variables = new();
+    private readonly Dictionary<string, string> variables = new();
 
     public string? GetEnvironmentVariable(string key) {
         _ = variables.TryGetValue(key, out var value);
