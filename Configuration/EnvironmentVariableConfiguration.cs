@@ -1,3 +1,4 @@
+using System.Collections;
 using System.ComponentModel;
 using System.Reflection;
 using Beancounter.Extension;
@@ -74,15 +75,23 @@ file class VariableLoader
     private static readonly Lazy<VariableLoader> InstanceBackingField = new(() => new VariableLoader());
 
     private VariableLoader() {
+        foreach (DictionaryEntry environmentVariable in Environment.GetEnvironmentVariables()) {
+            if (environmentVariable is { Key: string key, Value: string value }
+                && !string.IsNullOrWhiteSpace(value)) {
+                variables.TryAdd(key, value);
+            }
+        }
         Env.Load(options: new LoadOptions(onlyExactPath: false))
             .ForEach(envVar => {
                 variables.TryAdd(envVar.Key, envVar.Value);
             });
     }
 
+
+
     public static VariableLoader Instance => InstanceBackingField.Value;
 
-    private readonly Dictionary<string, string> variables = new();
+    private readonly Dictionary<string, string?> variables = new();
 
     public string? GetEnvironmentVariable(string key) {
         _ = variables.TryGetValue(key, out var value);
