@@ -6,6 +6,23 @@ public static class DirectoryInfo_Extensions {
     }
 
     /// <summary>
+    /// Retrieves a <see cref="FileInfo"/> object representing the file with the specified name in the given directory.
+    /// </summary>
+    /// <param name="directoryInfo">The directory to search within.</param>
+    /// <param name="fileName">The name of the file to get.</param>
+    /// <returns>
+    /// A <see cref="FileInfo"/> object for the specified file.
+    /// </returns>
+    /// <exception cref="Exception">Thrown if the file does not exist.</exception>
+    public static FileInfo GetFile(this DirectoryInfo directoryInfo, string fileName) {
+        var filePath = Path.Combine(directoryInfo.FullName, fileName);
+        var fileInfo = new FileInfo(filePath);
+        if (!fileInfo.Exists)
+            throw new Exception($"File does not exist. {fileInfo.FullName}");
+        return fileInfo;
+    }
+
+    /// <summary>
     /// Deletes the specified directory and any subdirectories and files in the directory.
     /// </summary>
     /// <exception cref="T:System.IO.IOException">A file with the same name and location specified by <paramref name="path" /> exists.
