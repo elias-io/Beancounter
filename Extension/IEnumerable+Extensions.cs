@@ -12,4 +12,10 @@ public static class IEnumerable_Extensions {
             await predicate(item);
         }
     }
+
+    public static IEnumerable<T> OfType<T>(this IEnumerable<object> collection) where T : class {
+        return collection
+            .Where(item => item.GetType() == typeof(T))
+            .Select(item => item as T)!;
+    }
 }
