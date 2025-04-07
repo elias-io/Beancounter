@@ -43,4 +43,29 @@ public static class Try {
         }
     }
 
+    public static void Run(
+        Action func,
+        Action<Exception>? errorFunc = null) {
+        try {
+            func();
+        }
+        catch (Exception ex){
+            errorFunc?.Invoke(ex);
+        }
+    }
+
+    public static async Task RunAsync(
+        Func<Task> func,
+        Func<Exception, Task>? errorFunc = null) {
+        try {
+            await func();
+        }
+        catch (Exception ex){
+            if (errorFunc is not null) {
+                await errorFunc.Invoke(ex);
+            }
+        }
+    }
+
+
 }
