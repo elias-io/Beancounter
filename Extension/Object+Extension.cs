@@ -2,8 +2,18 @@ using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 
 namespace Beancounter.Extension;
+
+/// <summary>
+/// Provides extension methods for object validation and operations.
+/// </summary>
 public static class ObjectExtension
 {
+    /// <summary>
+    /// Validates an object and its properties, checking for null values in non-nullable properties.
+    /// </summary>
+    /// <param name="obj">The object to validate.</param>
+    /// <param name="validationErrors">List to receive validation error messages.</param>
+    /// <returns>True if validation passes, false otherwise.</returns>
     public static bool Validate(this object? obj, out List<string> validationErrors)
     {
         validationErrors = new List<string>();

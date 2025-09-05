@@ -2,7 +2,18 @@ using Beancounter.Datastructures;
 
 namespace Beancounter.TryWrap;
 
+/// <summary>
+/// Provides static methods for exception-safe operations that return Result or Optional types.
+/// </summary>
 public static class Try {
+    /// <summary>
+    /// Executes an async function and returns a Result instead of throwing exceptions.
+    /// </summary>
+    /// <typeparam name="TSuccess">The type of the success value.</typeparam>
+    /// <typeparam name="TError">The type of the error value.</typeparam>
+    /// <param name="func">The async function to execute.</param>
+    /// <param name="errorFunc">Function to convert exceptions to error values.</param>
+    /// <returns>A Task that completes with a Result containing either the success value or error.</returns>
     public static async Task<Result<TSuccess,TError>> ResultAsync<TSuccess,TError>(
         Func<Task<TSuccess>> func, 
         Func<Exception, TError> errorFunc) {
@@ -12,6 +23,15 @@ public static class Try {
             return new Result<TSuccess, TError>(errorFunc(e));
         }
     }
+    
+    /// <summary>
+    /// Executes a synchronous function and returns a Result instead of throwing exceptions.
+    /// </summary>
+    /// <typeparam name="TSuccess">The type of the success value.</typeparam>
+    /// <typeparam name="TError">The type of the error value.</typeparam>
+    /// <param name="func">The function to execute.</param>
+    /// <param name="errorFunc">Function to convert exceptions to error values.</param>
+    /// <returns>A Result containing either the success value or error.</returns>
     public static Result<TSuccess,TError> Result<TSuccess,TError>(
         Func<TSuccess> func, 
         Func<Exception, TError> errorFunc) {
@@ -21,6 +41,14 @@ public static class Try {
             return new Result<TSuccess, TError>(errorFunc(e));
         }
     }
+    
+    /// <summary>
+    /// Executes an async void function and returns an Optional instead of throwing exceptions.
+    /// </summary>
+    /// <typeparam name="TError">The type of the error value.</typeparam>
+    /// <param name="func">The async void function to execute.</param>
+    /// <param name="errorFunc">Function to convert exceptions to error values.</param>
+    /// <returns>A Task that completes with an Optional containing either no value (success) or an error.</returns>
     public static async Task<Optional<TError>> OptionalAsync<TError>(
         Func<Task> func, 
         Func<Exception, TError> errorFunc) {
@@ -32,6 +60,13 @@ public static class Try {
         }
     }
     
+    /// <summary>
+    /// Executes a synchronous void function and returns an Optional instead of throwing exceptions.
+    /// </summary>
+    /// <typeparam name="TError">The type of the error value.</typeparam>
+    /// <param name="func">The void function to execute.</param>
+    /// <param name="errorFunc">Function to convert exceptions to error values.</param>
+    /// <returns>An Optional containing either no value (success) or an error.</returns>
     public static Optional<TError> Optional<TError>(
         Action func, 
         Func<Exception, TError> errorFunc) {
@@ -43,6 +78,11 @@ public static class Try {
         }
     }
 
+    /// <summary>
+    /// Executes a synchronous void function with optional error handling.
+    /// </summary>
+    /// <param name="func">The void function to execute.</param>
+    /// <param name="errorFunc">Optional function to handle exceptions.</param>
     public static void Run(
         Action func,
         Action<Exception>? errorFunc = null) {
@@ -54,6 +94,12 @@ public static class Try {
         }
     }
 
+    /// <summary>
+    /// Executes an async void function with optional error handling.
+    /// </summary>
+    /// <param name="func">The async void function to execute.</param>
+    /// <param name="errorFunc">Optional async function to handle exceptions.</param>
+    /// <returns>A Task that completes when the function execution completes.</returns>
     public static async Task RunAsync(
         Func<Task> func,
         Func<Exception, Task>? errorFunc = null) {
@@ -66,6 +112,4 @@ public static class Try {
             }
         }
     }
-
-
 }

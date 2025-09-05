@@ -4,8 +4,16 @@ using System.Text.RegularExpressions;
 
 namespace Beancounter.Extension;
 
+/// <summary>
+/// Provides extension methods for string operations.
+/// </summary>
 public static class String_Extension {
 
+    /// <summary>
+    /// Converts a string to ASCII by removing diacritics and special characters.
+    /// </summary>
+    /// <param name="input">The input string to convert.</param>
+    /// <returns>The ASCII version of the input string.</returns>
     public static string ConvertToAscii(this string input)
     {
         if (string.IsNullOrEmpty(input))
@@ -29,6 +37,11 @@ public static class String_Extension {
         return sb.ToString().Normalize(NormalizationForm.FormC);
     }
 
+    /// <summary>
+    /// Converts a string to a URL-safe identifier by removing special characters and normalizing.
+    /// </summary>
+    /// <param name="input">The input string to convert.</param>
+    /// <returns>A URL-safe identifier.</returns>
     public static string ToStringId(this string input) {
         var result = input;
         result = result.Replace(" ", "_");
