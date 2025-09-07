@@ -7,7 +7,7 @@
         <!-- NuGet package metadata -->
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <PackageId>dev.elias.beancounter</PackageId>
-        <Version>1.0.1</Version>
+        <Version>1.0.2</Version>
         <Authors>Elias</Authors>
         <Company>Solo</Company>
         <Description>Misc reusable functions</Description>
