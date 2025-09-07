@@ -28,7 +28,7 @@ Install-Package dev.elias.beancounter
 ### PackageReference
 
 ```xml
-<PackageReference Include="dev.elias.beancounter" Version="1.0.1" />
+<PackageReference Include="dev.elias.beancounter" Version="1.0.3" />
 ```
 
 ## Quick Start
