@@ -278,43 +278,62 @@ Result<int, string> result = "Error"; // Implicit conversion to error
 
 ## AsyncBarrier
 
-The `AsyncBarrier` class provides a synchronization primitive for coordinating multiple async operations. It allows a specified number of participants to wait for each other before proceeding.
+The `AsyncBarrier` class coordinates multiple asynchronous participants across discrete phases. Each participant calls `SignalAndWaitAsync(participantId, step)` with a stable `participantId` and a diagnostic `step` name. When the configured number of participants have arrived, the phase opens and up to a configured number of participants may proceed concurrently.
 
 ### Constructors
 
-#### `AsyncBarrier(int participantCount)`
-Creates a new AsyncBarrier with the specified number of participants.
+#### `AsyncBarrier(int participantCount, int parallelExecutions)`
+Creates a new AsyncBarrier with the specified number of participants and maximum concurrent executions per phase.
 
 **Parameters:**
-- `participantCount` (`int`): The number of participants that must signal before all can proceed
+- `participantCount` (`int`): Total number of distinct participants that will coordinate
+- `parallelExecutions` (`int`): Maximum participants allowed to proceed concurrently once a phase opens; use 0 to equal `participantCount`
 
 **Exceptions:**
-- `ArgumentException`: Thrown when `participantCount` is less than or equal to zero
+- `ArgumentOutOfRangeException`: Thrown when `participantCount` <= 0 or `parallelExecutions` < 0
 
 **Example:**
 ```csharp
-var barrier = new AsyncBarrier(3); // 3 participants must signal
+// 5 participants, at most 2 proceed concurrently after each phase opens
+var barrier = new AsyncBarrier(participantCount: 5, parallelExecutions: 2);
 ```
 
 ### Methods
 
-#### `SignalAndWaitAsync()`
-Signals that this participant has reached the barrier and waits for all other participants.
+#### `Task SignalAndWaitAsync(string participantId, string step, CancellationToken ct = default)`
+Signals arrival of a participant to the current phase, waits until the phase opens, then acquires an execution slot.
+
+**Parameters:**
+- `participantId` (`string`): Stable identifier for a participant; must be non-empty
+- `step` (`string`): Human-readable label for the phase (diagnostics only)
+- `ct` (`CancellationToken`): Optional token to cancel the wait
 
 **Returns:** `Task`
 
+**Exceptions:**
+- `ArgumentException`: When `participantId` or `step` is null/whitespace
+- `InvalidOperationException`: When more distinct participants than `participantCount` attempt to join
+- `ObjectDisposedException`: When called after disposal
+
 **Behavior:**
-- When the last participant calls this method, all waiting participants are released
-- The barrier automatically resets for the next round
-- Thread-safe and can be called concurrently
+- The last arrival opens the phase and unblocks all waiting participants
+- At most `parallelExecutions` participants may proceed concurrently
+- Each participant holds its execution slot until its next call, smoothing throughput across phases
+- Thread-safe and supports concurrent callers
 
 **Example:**
 ```csharp
-var barrier = new AsyncBarrier(3);
+var barrier = new AsyncBarrier(participantCount: 3, parallelExecutions: 2);
 
-// In three different async methods:
-await barrier.SignalAndWaitAsync(); // All three will wait here until all arrive
-// All three will continue execution simultaneously
+// Suppose these run in different tasks/services with stable IDs
+await barrier.SignalAndWaitAsync("A", step: "load-input");
+await barrier.SignalAndWaitAsync("B", step: "load-input");
+await barrier.SignalAndWaitAsync("C", step: "load-input");
+
+// Next phase
+await barrier.SignalAndWaitAsync("A", step: "transform");
+await barrier.SignalAndWaitAsync("B", step: "transform");
+await barrier.SignalAndWaitAsync("C", step: "transform");
 ```
 
 ## LazyAsync<T>

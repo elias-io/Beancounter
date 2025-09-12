@@ -1,6 +1,21 @@
 using System.Collections.Concurrent;
 
 namespace Beancounter.Datastructures;
+/// <summary>
+/// A synchronization primitive for coordinating multiple asynchronous participants across phases.
+/// Each participant calls <see cref="SignalAndWaitAsync"/> with a stable <c>participantId</c> and a <c>step</c>
+/// identifier to arrive at the current phase. When the configured number of participants have arrived,
+/// the phase opens and up to <c>parallelExecutions</c> participants are allowed to proceed concurrently.
+/// A participant holds its acquired execution slot until its next call, ensuring fairness across phases.
+/// </summary>
+/// <remarks>
+/// - The barrier advances in discrete phases. Each participant advances one phase per successful call.
+/// - The <c>step</c> parameter is intended for diagnostics/traceability and does not affect coordination.
+/// - If <paramref name="parallelExecutions"/> is 0 or greater than <paramref name="participantCount"/>,
+///   it defaults to <paramref name="participantCount"/> (i.e., no additional throttling).
+/// - Instances are thread-safe and support concurrent callers.
+/// - Implements <see cref="IDisposable"/> and <see cref="IAsyncDisposable"/> to release internal semaphores.
+/// </remarks>
 public sealed class AsyncBarrier : IAsyncDisposable, IDisposable
 {
     private readonly int participants;
@@ -29,6 +44,15 @@ public sealed class AsyncBarrier : IAsyncDisposable, IDisposable
     private readonly ConcurrentDictionary<string, ParticipantState> states =
         new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AsyncBarrier"/> class.
+    /// </summary>
+    /// <param name="participantCount">The number of participants that will coordinate at the barrier.</param>
+    /// <param name="parallelExecutions">The maximum number of participants allowed to proceed concurrently after a phase opens.
+    /// Use 0 to allow up to <paramref name="participantCount"/> participants (no throttling).</param>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// Thrown when <paramref name="participantCount"/> is less than or equal to 0, or when <paramref name="parallelExecutions"/> is negative.
+    /// </exception>
     public AsyncBarrier(int participantCount, int parallelExecutions)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(participantCount);
@@ -40,6 +64,17 @@ public sealed class AsyncBarrier : IAsyncDisposable, IDisposable
         parallel = parallelExecutions;
     }
 
+    /// <summary>
+    /// Signals arrival of a participant to the current phase and asynchronously waits until the phase opens.
+    /// Once open, acquires one of the available parallel execution slots and returns.
+    /// The acquired slot is held by this participant until its next invocation, ensuring stable throughput across phases.
+    /// </summary>
+    /// <param name="participantId">A stable identifier for the participant across phases. Required and must be non-empty.</param>
+    /// <param name="step">A descriptive label for the logical step/phase (for diagnostics). Required and must be non-empty.</param>
+    /// <param name="ct">An optional cancellation token to cancel the wait.</param>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="participantId"/> or <paramref name="step"/> is null/whitespace.</exception>
+    /// <exception cref="InvalidOperationException">Thrown if more distinct participants than <c>participantCount</c> attempt to join.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown if the barrier has been disposed.</exception>
     public async Task SignalAndWaitAsync(string participantId, string step, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(participantId)) throw new ArgumentException("participantId required", nameof(participantId));
@@ -113,6 +148,10 @@ public sealed class AsyncBarrier : IAsyncDisposable, IDisposable
         if (disposed) throw new ObjectDisposedException(nameof(AsyncBarrier));
     }
 
+    /// <summary>
+    /// Releases resources used by the barrier. Any held execution slots are released and internal semaphores disposed.
+    /// Safe to call multiple times.
+    /// </summary>
     public void Dispose()
     {
         if (disposed) return;
@@ -134,5 +173,9 @@ public sealed class AsyncBarrier : IAsyncDisposable, IDisposable
         }
     }
 
+    /// <summary>
+    /// Asynchronously releases resources used by the barrier.
+    /// Equivalent to calling <see cref="Dispose"/>.
+    /// </summary>
     public ValueTask DisposeAsync() { Dispose(); return ValueTask.CompletedTask; }
 }

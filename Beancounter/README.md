@@ -89,10 +89,18 @@ var config = new AppConfig();
 ```csharp
 using Beancounter.Datastructures;
 
-var barrier = new AsyncBarrier(3);
+// 3 participants; allow all to proceed when phase opens (no throttling)
+var barrier = new AsyncBarrier(participantCount: 3, parallelExecutions: 0);
 
-// In three different async methods:
-await barrier.SignalAndWaitAsync(); // All three will wait here until all arrive
+// In three different async methods/services with stable IDs:
+await barrier.SignalAndWaitAsync("Producer", step: "load");
+await barrier.SignalAndWaitAsync("WorkerA", step: "load");
+await barrier.SignalAndWaitAsync("WorkerB", step: "load");
+
+// Next phase
+await barrier.SignalAndWaitAsync("Producer", step: "process");
+await barrier.SignalAndWaitAsync("WorkerA", step: "process");
+await barrier.SignalAndWaitAsync("WorkerB", step: "process");
 ```
 
 ## Documentation
