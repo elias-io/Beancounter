@@ -263,7 +263,66 @@ public class AsyncBarrierTests
         Assert.That(maxConcurrent, Is.EqualTo(participants));
     }
 
-    
+    [Test]
+    public async Task Callback_Exception_Propagates_And_Other_Completes()
+    {
+        await using var barrier = new AsyncBarrier(2, 1);
+
+        var didRun = 0;
+
+        var tThrow = Task.Run(async () =>
+        {
+            await barrier.SignalWaitAndRunAsync("A", "p0", _ => throw new InvalidOperationException("boom"));
+        });
+
+        var tOk = Task.Run(async () =>
+        {
+            await barrier.SignalWaitAndRunAsync("B", "p0", async _ =>
+            {
+                Interlocked.Increment(ref didRun);
+            });
+        });
+
+        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await tThrow);
+        Assert.That(ex!.Message, Does.Contain("boom"));
+
+        await tOk;
+        Assert.That(Volatile.Read(ref didRun), Is.EqualTo(1));
+    }
+    [Test]
+    public async Task Callback_Exception_Propagates_And_Rethrows()
+    {
+        await using var barrier = new AsyncBarrier(2, 1);
+
+        var didRun = 0;
+
+        var tThrow = Task.Run(async () =>
+        {
+            Task[] tasks =
+            [
+                Task.Run(async () =>
+                {
+                    await barrier.SignalWaitAndRunAsync("B", "p0", async _ =>
+                    {
+                        await Task.Delay(100);
+                        throw new InvalidOperationException("boom");
+                    });
+                    await barrier.SignalWaitAndRunAsync("B", "p0", async _ =>
+                    {
+                        await Task.Delay(50);
+                        Interlocked.Increment(ref didRun);
+                    });
+                })
+            ];
+            await Task.WhenAll(tasks);
+        });
+
+
+        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await tThrow);
+        Assert.That(ex!.Message, Does.Contain("boom"));
+
+    }
+
 }
 
 internal static class InterlockedExtensions
