@@ -21,6 +21,7 @@ public sealed class AsyncBarrier : IAsyncDisposable, IDisposable
     private readonly int participants;
     private readonly int parallel;
     private readonly object @lock = new();
+    private readonly Guid _id = Guid.NewGuid();
 
     private int created;
     private bool disposed;
@@ -62,6 +63,7 @@ public sealed class AsyncBarrier : IAsyncDisposable, IDisposable
 
         participants = participantCount;
         parallel = parallelExecutions;
+        Console.WriteLine($"AsyncBarrier {_id} INIT participants:{participants} parallel:{parallel}");
     }
 
     /// <summary>
@@ -77,6 +79,7 @@ public sealed class AsyncBarrier : IAsyncDisposable, IDisposable
     /// <exception cref="ObjectDisposedException">Thrown if the barrier has been disposed.</exception>
     public async Task SignalAndWaitAsync(string participantId, string step, CancellationToken ct = default)
     {
+        Console.WriteLine($"AsyncBarrier {_id} WAIT {participantId} {step}");
         if (string.IsNullOrWhiteSpace(participantId)) throw new ArgumentException("participantId required", nameof(participantId));
         if (string.IsNullOrWhiteSpace(step)) throw new ArgumentException("step required", nameof(step));
         ThrowIfDisposed();
@@ -115,8 +118,10 @@ public sealed class AsyncBarrier : IAsyncDisposable, IDisposable
         }
         finally
         {
+            Console.WriteLine($"AsyncBarrier {_id} EXIT {participantId} {step}");
             state.Gate.Release();
         }
+
     }
 
     /// <summary>
@@ -138,6 +143,7 @@ public sealed class AsyncBarrier : IAsyncDisposable, IDisposable
         Func<CancellationToken, Task> work,
         CancellationToken ct = default)
     {
+        Console.WriteLine($"AsyncBarrier {_id} WAIT {participantId} {step}");
         if (string.IsNullOrWhiteSpace(participantId)) throw new ArgumentException("participantId required", nameof(participantId));
         if (string.IsNullOrWhiteSpace(step)) throw new ArgumentException("step required", nameof(step));
         if (work is null) throw new ArgumentNullException(nameof(work));
@@ -174,10 +180,12 @@ public sealed class AsyncBarrier : IAsyncDisposable, IDisposable
                 Interlocked.Increment(ref state.PhaseIndex);
 
                 // Execute user work while holding the slot; release when done.
+                Console.WriteLine($"AsyncBarrier {_id} RUN {participantId} {step}");
                 await work(ct).ConfigureAwait(false);
             }
             finally
             {
+                Console.WriteLine($"AsyncBarrier {_id} EXIT {participantId} {step}");
                 phase.Slots.Release();
             }
         }
@@ -185,6 +193,7 @@ public sealed class AsyncBarrier : IAsyncDisposable, IDisposable
         {
             state.Gate.Release();
         }
+
     }
 
     private Phase GetOrCreatePhase(int index)

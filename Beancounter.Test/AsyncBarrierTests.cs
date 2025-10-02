@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Beancounter.Datastructures;
+using Beancounter.Extension;
 
 namespace Beancounter.Test;
 
@@ -292,37 +294,83 @@ public class AsyncBarrierTests
     [Test]
     public async Task Callback_Exception_Propagates_And_Rethrows()
     {
-        await using var barrier = new AsyncBarrier(2, 1);
+        await using var barrier = new AsyncBarrier(2, 2);
 
         var didRun = 0;
 
-        var tThrow = Task.Run(async () =>
-        {
-            Task[] tasks =
-            [
-                Task.Run(async () =>
+        Task[] tasks = [
+            Task.Run(async () =>
+            {
+                await barrier.SignalWaitAndRunAsync("B", "p0", async _ =>
                 {
-                    await barrier.SignalWaitAndRunAsync("B", "p0", async _ =>
-                    {
-                        await Task.Delay(100);
-                        throw new InvalidOperationException("boom");
-                    });
-                    await barrier.SignalWaitAndRunAsync("B", "p0", async _ =>
-                    {
-                        await Task.Delay(50);
-                        Interlocked.Increment(ref didRun);
-                    });
-                })
-            ];
-            await Task.WhenAll(tasks);
+                    TestContext.Out.WriteLine("B-p0");
+                    await Task.Delay(100);
+                    throw new InvalidOperationException("boom");
+                });
+                await barrier.SignalWaitAndRunAsync("B", "p1", async _ =>
+                {
+                    TestContext.Out.WriteLine("B-p1");
+                    await Task.Delay(100);
+                    Interlocked.Increment(ref didRun);
+                });
+            }),
+            Task.Run(async () =>
+            {
+                await barrier.SignalWaitAndRunAsync("A", "p0", async _ =>
+                {
+                    TestContext.Out.WriteLine("A-p0");
+                    await Task.Delay(100);
+                    Interlocked.Increment(ref didRun);
+                });
+
+                await barrier.SignalWaitAndRunAsync("A", "p1", async _ =>
+                {
+                    TestContext.Out.WriteLine("A-p1");
+                    await Task.Delay(100);
+                    Interlocked.Increment(ref didRun);
+                });
+            }),
+        ];
+
+
+        Assert.Multiple(() =>
+        {
+            var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await tasks.WhenAllOrAnyThrows());
+            Assert.That(ex!.Message, Does.Contain("boom"));
+            Assert.That(didRun, Is.EqualTo(1));
         });
-
-
-        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await tThrow);
-        Assert.That(ex!.Message, Does.Contain("boom"));
-
     }
 
+
+    [Test]
+    public async Task Task_Exception_WhenAll_Propagate()
+    {
+        var didRun = 0;
+        Task[] tasks =
+        [
+            Task.Run(async () =>
+            {
+                await Task.Delay(100);
+                throw new Exception("boom");
+            }),
+            Task.Run(async () =>
+            {
+                await Task.Delay(int.MaxValue);
+                Interlocked.Increment(ref didRun);
+            }),
+        ];
+
+        try
+        {
+            await tasks.WhenAllOrAnyThrows();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
+
+        Assert.ThrowsAsync<Exception>(async () => await tasks.WhenAllOrAnyThrows());
+    }
 }
 
 internal static class InterlockedExtensions
