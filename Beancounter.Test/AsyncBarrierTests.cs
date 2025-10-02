@@ -79,43 +79,28 @@ public class AsyncBarrierTests
 
         async Task Run(string id)
         {
-            try
+            await barrier.SignalWaitAndRunAsync(id, "p0", async _ =>
             {
-                // Single phase to measure concurrency; we will cancel remaining waiters afterward to avoid hangs
-                await barrier.SignalAndWaitAsync(id, "p0", cts.Token);
                 var now = Interlocked.Increment(ref inPhase);
                 InterlockedExtensions.Max(ref maxConcurrent, now);
                 await Task.Delay(75, cts.Token);
                 Interlocked.Decrement(ref inPhase);
-            }
-            catch (OperationCanceledException)
-            {
-                // Expected if still waiting due to limited parallelism when we cancel the test
-            }
+            }, cts.Token);
         }
 
         var tasks = Enumerable.Range(1, participants)
             .Select(i => Task.Run(() => Run($"p{i}")))
             .ToArray();
 
-        var all = Task.WhenAll(tasks);
-        var completed = await Task.WhenAny(all, Task.Delay(TimeSpan.FromSeconds(10))) == all;
-
-        // If not all completed (expected due to held slots), cancel to unblock and wait for graceful end
-        if (!completed)
-        {
-            cts.Cancel();
-            try { await all; } catch { /* ignore cancellations */ }
-        }
-
+        await Task.WhenAll(tasks);
         Assert.That(maxConcurrent, Is.LessThanOrEqualTo(parallel));
     }
 
     [Test]
-    public async Task Slot_Is_Held_Across_Phases_By_Same_Participant()
+    public async Task Callback_Does_Not_Require_Next_Phase_And_Ends_Cleanly()
     {
         var participants = 2;
-        var parallel = 1; // only one slot should run at a time, and it should be reused by same participant across phases
+        var parallel = 1;
         await using var barrier = new AsyncBarrier(participants, parallel);
 
         var order = new List<string>();
@@ -124,34 +109,21 @@ public class AsyncBarrierTests
 
         async Task Run(string id)
         {
-            try
+            // phase 0 work
+            await barrier.SignalWaitAndRunAsync(id, "p0", async _ =>
             {
-                // phase 0
-                await barrier.SignalAndWaitAsync(id, "p0", cts.Token);
                 await gate.WaitAsync();
                 order.Add($"{id}-0");
                 gate.Release();
+            }, cts.Token);
 
-                // phase 1
-                await barrier.SignalAndWaitAsync(id, "p1", cts.Token);
+            // phase 1 work
+            await barrier.SignalWaitAndRunAsync(id, "p1", async _ =>
+            {
                 await gate.WaitAsync();
                 order.Add($"{id}-1");
                 gate.Release();
-
-                // Start a third call that cancels shortly after entry to release the held slot from phase 1
-                using var releaseCts = new CancellationTokenSource();
-                var cleanup = Task.Run(async () =>
-                {
-                    // Ensure we get past Gate and slot release before canceling
-                    releaseCts.CancelAfter(10);
-                    await barrier.SignalAndWaitAsync(id, "cleanup", releaseCts.Token);
-                });
-                try { await cleanup; } catch (OperationCanceledException) { /* expected */ }
-            }
-            catch (OperationCanceledException)
-            {
-                // ignore for test cleanup
-            }
+            }, cts.Token);
         }
 
         var tasks = new[]
@@ -185,6 +157,20 @@ public class AsyncBarrierTests
         var cancelled = Assert.ThrowsAsync<TaskCanceledException>(async () =>
         {
             await barrier.SignalAndWaitAsync("A", "p0", cts.Token);
+        });
+
+        Assert.That(cancelled, Is.Not.Null);
+    }
+
+    [Test]
+    public async Task Callback_Cancellation_Before_Open_Cancels_Wait()
+    {
+        await using var barrier = new AsyncBarrier(2, 2);
+        using var cts = new CancellationTokenSource(50);
+
+        var cancelled = Assert.ThrowsAsync<TaskCanceledException>(async () =>
+        {
+            await barrier.SignalWaitAndRunAsync("A", "p0", _ => Task.CompletedTask, cts.Token);
         });
 
         Assert.That(cancelled, Is.Not.Null);
@@ -227,8 +213,11 @@ public class AsyncBarrierTests
         var reached = 0;
         async Task Run(string id)
         {
-            await barrier.SignalAndWaitAsync(id, "p0", cts.Token);
-            Interlocked.Increment(ref reached);
+            await barrier.SignalWaitAndRunAsync(id, "p0", _ =>
+            {
+                Interlocked.Increment(ref reached);
+                return Task.CompletedTask;
+            }, cts.Token);
         }
 
         var tasks = new[]
@@ -256,11 +245,13 @@ public class AsyncBarrierTests
 
         async Task Run(string id)
         {
-            await barrier.SignalAndWaitAsync(id, "p0");
-            var now = Interlocked.Increment(ref inPhase);
-            InterlockedExtensions.Max(ref maxConcurrent, now);
-            await Task.Delay(20);
-            Interlocked.Decrement(ref inPhase);
+            await barrier.SignalWaitAndRunAsync(id, "p0", async _ =>
+            {
+                var now = Interlocked.Increment(ref inPhase);
+                InterlockedExtensions.Max(ref maxConcurrent, now);
+                await Task.Delay(20);
+                Interlocked.Decrement(ref inPhase);
+            });
         }
 
         var tasks = Enumerable.Range(1, participants)

@@ -119,6 +119,74 @@ public sealed class AsyncBarrier : IAsyncDisposable, IDisposable
         }
     }
 
+    /// <summary>
+    /// Signals arrival and waits for the phase to open, then executes the provided <paramref name="work"/>
+    /// delegate while holding a parallel execution slot. The slot is released when the delegate completes
+    /// (successfully or with an error), avoiding last-phase stalls while still enforcing <c>parallelExecutions</c>
+    /// during the actual work.
+    /// </summary>
+    /// <param name="participantId">Stable identifier for the participant.</param>
+    /// <param name="step">Diagnostic step/phase name.</param>
+    /// <param name="work">Callback executed under the acquired slot.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <exception cref="ArgumentException">Thrown when parameters are invalid.</exception>
+    /// <exception cref="InvalidOperationException">Thrown if more distinct participants than configured attempt to join.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown if the barrier has been disposed.</exception>
+    public async Task SignalWaitAndRunAsync(
+        string participantId,
+        string step,
+        Func<CancellationToken, Task> work,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(participantId)) throw new ArgumentException("participantId required", nameof(participantId));
+        if (string.IsNullOrWhiteSpace(step)) throw new ArgumentException("step required", nameof(step));
+        if (work is null) throw new ArgumentNullException(nameof(work));
+        ThrowIfDisposed();
+
+        var state = states.GetOrAdd(participantId, _ =>
+        {
+            if (Interlocked.Increment(ref created) > participants)
+            {
+                Interlocked.Decrement(ref created);
+                throw new InvalidOperationException("More participants than participantCount.");
+            }
+            return new ParticipantState();
+        });
+
+        await state.Gate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            // Release any previously held slot (from SignalAndWaitAsync usage)
+            Interlocked.Exchange(ref state.Held, null)?.Release();
+
+            var phase = GetOrCreatePhase(state.PhaseIndex);
+
+            // Arrive; last arrival opens the phase.
+            Arrive(phase);
+
+            // Wait for phase to open, then take one of the allowed parallel slots.
+            await phase.Open.Task.WaitAsync(ct).ConfigureAwait(false);
+            await phase.Slots.WaitAsync(ct).ConfigureAwait(false);
+
+            try
+            {
+                // Advance to the next phase before executing work.
+                Interlocked.Increment(ref state.PhaseIndex);
+
+                // Execute user work while holding the slot; release when done.
+                await work(ct).ConfigureAwait(false);
+            }
+            finally
+            {
+                phase.Slots.Release();
+            }
+        }
+        finally
+        {
+            state.Gate.Release();
+        }
+    }
+
     private Phase GetOrCreatePhase(int index)
     {
         lock (@lock)
