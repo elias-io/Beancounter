@@ -102,14 +102,58 @@ public static class Try {
     /// <returns>A Task that completes when the function execution completes.</returns>
     public static async Task RunAsync(
         Func<Task> func,
-        Func<Exception, Task>? errorFunc = null) {
-        try {
+        Func<Exception, Task>? errorFunc = null)
+    {
+        try
+        {
             await func();
         }
-        catch (Exception ex){
-            if (errorFunc is not null) {
+        catch (Exception ex)
+        {
+            if (errorFunc is not null)
+            {
                 await errorFunc.Invoke(ex);
             }
         }
     }
+    
+    /// <summary>
+    /// Executes a synchronous function and returns a fallback value when an exception occurs.
+    /// </summary>
+    /// <typeparam name="T">The return type of the operation.</typeparam>
+    /// <param name="func">The function to execute.</param>
+    /// <param name="errorFunc">Function invoked when an exception is thrown; returns a fallback value.</param>
+    /// <returns>The result of <paramref name="func"/>, or the value returned by <paramref name="errorFunc"/> on error.</returns>
+    public static T Run<T>(
+        Func<T> func,
+        Func<Exception, T> errorFunc) {
+        try {
+            return func();
+        }
+        catch (Exception ex){
+            return errorFunc.Invoke(ex);
+        }
+    }
+
+    /// <summary>
+    /// Executes an asynchronous function and returns a fallback value when an exception occurs.
+    /// </summary>
+    /// <typeparam name="T">The return type of the operation.</typeparam>
+    /// <param name="func">The asynchronous function to execute.</param>
+    /// <param name="errorFunc">Asynchronous function invoked when an exception is thrown; returns a fallback value.</param>
+    /// <returns>A task that resolves to the result of <paramref name="func"/>, or the value returned by <paramref name="errorFunc"/> on error.</returns>
+    public static async Task<T> RunAsync<T>(
+        Func<Task<T>> func,
+        Func<Exception, Task<T>> errorFunc)
+    {
+        try
+        {
+            return await func();
+        }
+        catch (Exception ex)
+        {
+            return await errorFunc.Invoke(ex);
+        }
+    }
+    
 }
