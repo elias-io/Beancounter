@@ -10,9 +10,10 @@ public static class IEnumerable_Extensions {
     /// <typeparam name="T">The type of elements in the collection.</typeparam>
     /// <param name="collection">The collection to iterate over.</param>
     /// <param name="predicate">The action to execute for each element.</param>
-    public static void ForEach<T>(this IEnumerable<T> collection, Action<T> predicate) {
+    public static IEnumerable<T> ForEach<T>(this IEnumerable<T> collection, Action<T> predicate) {
         foreach (var item in collection) {
             predicate(item);
+            yield return item;
         }
     }
 
