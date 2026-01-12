@@ -5,11 +5,12 @@ namespace Beancounter.Extension;
 /// </summary>
 public static class IEnumerable_Extensions {
     /// <summary>
-    /// Executes an action for each element in the collection.
+    /// Executes the specified action on each element in the collection and yields each element (allowing fluent chaining).
     /// </summary>
     /// <typeparam name="T">The type of elements in the collection.</typeparam>
     /// <param name="collection">The collection to iterate over.</param>
     /// <param name="predicate">The action to execute for each element.</param>
+    /// <returns>The original elements, yielded in the same order.</returns>
     public static IEnumerable<T> ForEach<T>(this IEnumerable<T> collection, Action<T> predicate) {
         foreach (var item in collection) {
             predicate(item);
@@ -23,10 +24,11 @@ public static class IEnumerable_Extensions {
     /// <typeparam name="T">The type of elements in the collection.</typeparam>
     /// <param name="collection">The collection to iterate over.</param>
     /// <param name="predicate">The async action to execute for each element.</param>
-    /// <returns>A Task that completes when all elements have been processed.</returns>
-    public static async Task ForEachAsync<T>(this IEnumerable<T> collection, Func<T, Task> predicate) {
+    /// <returns>The original elements, yielded in the same order.</returns>
+    public static async IAsyncEnumerable<T> ForEachAsync<T>(this IEnumerable<T> collection, Func<T, Task> predicate) {
         foreach (var item in collection) {
             await predicate(item);
+            yield return item;
         }
     }
 
