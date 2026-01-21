@@ -11,10 +11,9 @@ public static class IEnumerable_Extensions {
     /// <param name="collection">The collection to iterate over.</param>
     /// <param name="predicate">The action to execute for each element.</param>
     /// <returns>The original elements, yielded in the same order.</returns>
-    public static IEnumerable<T> ForEach<T>(this IEnumerable<T> collection, Action<T> predicate) {
+    public static void ForEach<T>(this IEnumerable<T> collection, Action<T> predicate) {
         foreach (var item in collection) {
             predicate(item);
-            yield return item;
         }
     }
 
@@ -25,10 +24,9 @@ public static class IEnumerable_Extensions {
     /// <param name="collection">The collection to iterate over.</param>
     /// <param name="predicate">The async action to execute for each element.</param>
     /// <returns>The original elements, yielded in the same order.</returns>
-    public static async IAsyncEnumerable<T> ForEachAsync<T>(this IEnumerable<T> collection, Func<T, Task> predicate) {
+    public static async Task ForEachAsync<T>(this IEnumerable<T> collection, Func<T, Task> predicate) {
         foreach (var item in collection) {
             await predicate(item);
-            yield return item;
         }
     }
 

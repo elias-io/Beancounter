@@ -41,9 +41,9 @@ public static class ReflectionHelper
     /// <returns>Array of all types from all assemblies.</returns>
     private static Type[] GetTypes() {
         HashSet<Type> types = [];
-        AppDomain.CurrentDomain.GetAssemblies().ForEach(a => {
+        foreach (var a in AppDomain.CurrentDomain.GetAssemblies()) {
             types.AddRange(a.GetTypes());
-        });
+        }
         return types.ToArray();
     }
 
