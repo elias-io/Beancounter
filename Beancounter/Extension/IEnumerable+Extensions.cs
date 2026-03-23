@@ -41,4 +41,14 @@ public static class IEnumerable_Extensions {
             .Where(item => item.GetType() == typeof(T))
             .Select(item => item as T)!;
     }
+
+
+    public static IEnumerable<T> Flatten<T>(
+        this IEnumerable<T> source,
+        Func<T, IEnumerable<T>> childrenSelector)
+    {
+        return source.SelectMany(item =>
+            new[] { item }.Concat(childrenSelector(item).Flatten(childrenSelector)));
+    }
+
 }
